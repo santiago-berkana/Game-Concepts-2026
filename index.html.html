@@ -1,0 +1,1866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Cargo Match</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;800;900&display=swap');
+
+  :root {
+    --bg:           #f7f0e2;
+    --bg2:          #ede3cf;
+    --floor:        #e8d9be;
+    --wall:         #d4c4a0;
+    --wood-dark:    #8b5e2a;
+    --wood-mid:     #c4832e;
+    --wood-light:   #e8a84a;
+    --steel:        #8fa4b8;
+    --steel-dark:   #5a7080;
+    --yellow:       #f5c518;
+    --yellow-dark:  #c49610;
+    --orange:       #f07020;
+    --orange-dark:  #b84e10;
+    --green:        #4caf50;
+    --green-dark:   #2e7d32;
+    --text:         #2c1e0f;
+    --text-mid:     #5a3e28;
+    --text-light:   #8a6a48;
+    --shadow-warm:  rgba(100,60,10,0.18);
+    --shadow-deep:  rgba(0,0,0,0.30);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: radial-gradient(ellipse at 50% 30%, #7a8fa0, #3a4a58);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  #game-container {
+    width: 390px;
+    height: 844px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 36px;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 0 0 3px rgba(255,255,255,0.12);
+    /* Warehouse wall: warm cream with subtle vertical panel lines */
+    background:
+      repeating-linear-gradient(90deg,
+        transparent, transparent 38px,
+        rgba(0,0,0,0.03) 38px, rgba(0,0,0,0.03) 40px),
+      linear-gradient(180deg, #e8dfc8 0%, #ddd3b8 55%, #cfc3a0 100%);
+  }
+
+  /* Floor strip at bottom */
+  #game-container::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 110px;
+    background:
+      repeating-linear-gradient(90deg,
+        transparent, transparent 48px,
+        rgba(0,0,0,0.04) 48px, rgba(0,0,0,0.04) 50px),
+      linear-gradient(180deg, #d4c8a8, #c8ba90);
+    border-top: 3px solid rgba(0,0,0,0.08);
+    border-radius: 0 0 36px 36px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER / TIMER ── */
+  #level-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px 16px 6px;
+    flex-shrink: 0;
+    gap: 10px;
+    z-index: 2;
+    position: relative;
+  }
+  #timer-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, #4a5a6a, #384858);
+    border-radius: 22px;
+    padding: 5px 14px 5px 10px;
+    border: 2px solid rgba(255,255,255,0.15);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.12);
+  }
+  #timer-icon { font-size: 15px; line-height: 1; }
+  #timer-display {
+    font-family: 'Fredoka One', sans-serif;
+    font-size: 21px;
+    color: #f0e8d0;
+    letter-spacing: 1px;
+    min-width: 52px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+  #timer-display.urgent {
+    color: #ff6b6b;
+    animation: timerPulse 0.5s ease infinite alternate;
+  }
+  @keyframes timerPulse {
+    from { opacity: 1; transform: scale(1); }
+    to   { opacity: 0.7; transform: scale(1.06); }
+  }
+  #timer-bar-track {
+    flex: 1;
+    height: 10px;
+    background: rgba(0,0,0,0.25);
+    border-radius: 5px;
+    overflow: hidden;
+    border: 1.5px solid rgba(0,0,0,0.2);
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+  }
+  #timer-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--green), #81c784);
+    box-shadow: 0 0 6px rgba(76,175,80,0.5);
+    transition: background 0.4s;
+  }
+  #level-badge-wrap {
+    flex-shrink: 0;
+  }
+  #level-badge {
+    display: inline-block;
+    font-family: 'Fredoka One', sans-serif;
+    font-size: 13px;
+    color: #2c1e0f;
+    background: linear-gradient(160deg, #f5c518, #d4a010);
+    border-radius: 12px;
+    padding: 4px 12px;
+    border: 2px solid rgba(255,255,255,0.45);
+    box-shadow: 0 3px 0 #9a7008, 0 1px 6px rgba(0,0,0,0.2);
+    letter-spacing: 1px;
+  }
+  #timer-bar-fill.urgent {
+    background: linear-gradient(90deg, #e53935, #ef9a9a);
+    box-shadow: 0 0 6px rgba(229,57,53,0.6);
+  }
+
+  /* ── TRUCKS ── */
+  #trucks-area {
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-end;
+    padding: 2px 8px 0px;
+    flex-shrink: 0;
+    height: 100px;
+    position: relative;
+    z-index: 2;
+    /* Loading dock floor line */
+    border-bottom: 3px solid rgba(0,0,0,0.10);
+    background: linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.04) 100%);
+  }
+  .truck-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    position: relative;
+  }
+  .truck-icon-wrap {
+    position: relative;
+    width: 86px;
+    height: 66px;
+    filter: drop-shadow(0 6px 8px rgba(0,0,0,0.35));
+  }
+  .truck-svg { width: 86px; height: 66px; }
+  .truck-slot.locked .truck-icon-wrap {
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));
+  }
+  @keyframes driveAway {
+    0%   { transform: translateX(0); opacity: 1; }
+    100% { transform: translateX(340px); opacity: 0; }
+  }
+  .truck-departing {
+    animation: driveAway 0.65s ease-in forwards !important;
+    pointer-events: none;
+  }
+  .truck-svg.truck-bounce {
+    animation: truckBounce 0.38s cubic-bezier(0.36,0.07,0.19,0.97);
+  }
+  @keyframes truckBounce {
+    0%,100% { transform: translateY(0) rotate(0deg); }
+    20%     { transform: translateY(-8px) rotate(-2deg); }
+    50%     { transform: translateY(4px) rotate(1.5deg); }
+    75%     { transform: translateY(-4px) rotate(-1deg); }
+  }
+  .truck-good-badge {
+    position: absolute;
+    top: -12px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 20px;
+    line-height: 1;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4));
+    pointer-events: none;
+  }
+  .truck-lock-icon {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -54%);
+    font-size: 22px;
+    pointer-events: none;
+    background: linear-gradient(160deg, #4a3828, #2a1a0e);
+    border-radius: 50%;
+    width: 34px; height: 34px;
+    display: flex; align-items: center; justify-content: center;
+    border: 2.5px solid rgba(255,255,255,0.35);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.15);
+  }
+  .truck-progress {
+    font-family: 'Fredoka One', sans-serif;
+    font-size: 13px;
+    color: white;
+    background: linear-gradient(135deg, #4a3828, #2e2018);
+    border-radius: 10px;
+    padding: 2px 8px;
+    border: 1.5px solid rgba(255,255,255,0.18);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    letter-spacing: 0.5px;
+  }
+
+  /* ── CONVEYOR AREA ── */
+  #conveyor-area {
+    flex-shrink: 0;
+    margin: 6px 12px 6px;
+    position: relative;
+    height: 130px;
+    z-index: 2;
+  }
+  .delivery-strip {
+    position: absolute;
+    top: 0;
+    width: 26px;
+    border-radius: 5px 5px 0 0;
+    background: linear-gradient(180deg, #7a8fa0, #5a7080);
+    z-index: 3;
+    box-shadow: inset 0 2px 0 rgba(255,255,255,0.25), 2px 0 0 rgba(0,0,0,0.1), -2px 0 0 rgba(0,0,0,0.1);
+  }
+  .delivery-strip::before { display: none; }
+  .delivery-strip-cap {
+    position: absolute;
+    top: 0;
+    width: 26px;
+    height: 5px;
+    border-radius: 5px 5px 0 0;
+    background: rgba(255,255,255,0.3);
+    z-index: 4;
+  }
+  #conveyor-canvas {
+    position: absolute;
+    left: 0; top: 0;
+    width: 100%; height: 100%;
+    z-index: 2;
+    pointer-events: none;
+  }
+  #conveyor-capacity {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Fredoka One', sans-serif;
+    font-size: 20px;
+    color: var(--text-mid);
+    z-index: 15;
+    pointer-events: none;
+    white-space: nowrap;
+    letter-spacing: 1px;
+    text-shadow: 0 1px 2px rgba(255,255,255,0.5);
+  }
+  #conveyor-boxes-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  /* ── CONVEYOR BOXES ── */
+  .conveyor-box {
+    position: absolute;
+    width: 36px;
+    height: 52px;
+    pointer-events: none;
+    transform-origin: bottom center;
+  }
+  .cb-crate {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 28px;
+    background: linear-gradient(160deg, #e8a030 0%, #c07020 50%, #9a5418 100%);
+    border-radius: 5px;
+    border: 2px solid #6a3808;
+    box-shadow: 0 4px 0 #4a2405, inset 0 1px 0 rgba(255,255,255,0.3), inset 2px 0 0 rgba(255,255,255,0.1);
+    z-index: 1;
+    overflow: hidden;
+  }
+  /* Crate wood grain lines */
+  .cb-crate::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      90deg, transparent, transparent 8px,
+      rgba(0,0,0,0.07) 8px, rgba(0,0,0,0.07) 9px
+    );
+  }
+  .cb-crate::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 22px; height: 2px;
+    background: rgba(0,0,0,0.25);
+    border-radius: 1px;
+    box-shadow: 0 -5px 0 rgba(0,0,0,0.12), 0 5px 0 rgba(0,0,0,0.12);
+  }
+  .cb-good {
+    position: absolute;
+    bottom: 18px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 22px;
+    line-height: 1;
+    z-index: 2;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .conveyor-box.spawning {
+    animation: boxSpawn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards;
+  }
+  @keyframes boxSpawn {
+    from { transform: translateY(-36px) scale(0.4); opacity: 0; }
+    to   { transform: translateY(0) scale(1); opacity: 1; }
+  }
+  .conveyor-box.delivering {
+    animation: boxDeliver 0.42s ease-in forwards;
+  }
+  @keyframes boxDeliver {
+    0%   { transform: translateY(0) scale(1); opacity: 1; }
+    55%  { transform: translateY(-30px) scale(1.15); opacity: 1; }
+    100% { transform: translateY(-58px) scale(0.4); opacity: 0; }
+  }
+
+  /* ── MATCH FLASH ── */
+  .tray-slot.match-flash {
+    animation: matchFlash 0.30s ease forwards;
+    pointer-events: none;
+  }
+  @keyframes matchFlash {
+    0%   { transform: scale(1); background: white; }
+    40%  { transform: scale(1.35); background: #fff176; border-color: #f9a825; box-shadow: 0 0 12px #ffd740; }
+    100% { transform: scale(0); opacity: 0; }
+  }
+
+  /* ── HOP BOX ── */
+  .hop-box {
+    position: fixed;
+    width: 36px; height: 52px;
+    pointer-events: none;
+    z-index: 9999;
+    transform-origin: bottom center;
+  }
+  .hop-box .hb-crate {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 28px;
+    background: linear-gradient(160deg, #e8a030 0%, #c07020 50%, #9a5418 100%);
+    border-radius: 5px;
+    border: 2px solid #6a3808;
+    box-shadow: 0 4px 0 #4a2405, inset 0 1px 0 rgba(255,255,255,0.3);
+    overflow: hidden;
+  }
+  .hop-box .hb-crate::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      90deg, transparent, transparent 8px,
+      rgba(0,0,0,0.07) 8px, rgba(0,0,0,0.07) 9px
+    );
+  }
+  .hop-box .hb-good {
+    position: absolute;
+    bottom: 18px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 22px;
+    line-height: 1;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+    white-space: nowrap;
+  }
+
+  /* ── TRAYS ── */
+  #tray-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 4px 12px 4px;
+    flex-shrink: 0;
+    gap: 4px;
+    z-index: 2;
+    position: relative;
+  }
+  #tray-label {
+    font-family: 'Fredoka One', sans-serif;
+    font-size: 11px;
+    color: var(--text-light);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  #tray-row {
+    display: flex;
+    gap: 5px;
+    background: linear-gradient(160deg, #c8d4de, #a8b8c8);
+    border-radius: 16px;
+    padding: 7px 9px;
+    border: 2.5px solid rgba(255,255,255,0.4);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.4), inset 0 -2px 0 rgba(0,0,0,0.12);
+    align-items: center;
+  }
+  .tray-slot {
+    width: 36px; height: 36px;
+    background: rgba(255,255,255,0.25);
+    border-radius: 10px;
+    border: 2px solid rgba(255,255,255,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 19px;
+    transition: background 0.15s;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.15);
+  }
+  .tray-slot.filled {
+    background: linear-gradient(160deg, #fffde8, #fff8c0);
+    border: 2px solid #d4a820;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.8);
+  }
+  .tray-slot.bonus-locked {
+    background: rgba(80,90,100,0.25);
+    border: 2px dashed rgba(255,255,255,0.3);
+    opacity: 0.55;
+  }
+  .tray-slot.bonus-unlocked {
+    background: rgba(255,240,160,0.35);
+    border: 2px dashed #d4b840;
+  }
+  .bonus-lock-icon { font-size: 14px; opacity: 0.6; }
+  .tray-slot.matched { animation: matchPop 0.38s ease forwards; }
+  @keyframes matchPop {
+    0%   { transform: scale(1); }
+    30%  { transform: scale(1.28); background: #fff176; }
+    65%  { transform: scale(0.7); }
+    100% { transform: scale(0); opacity: 0; }
+  }
+
+  /* ── STORAGE AREA ── */
+  #storage-area-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 4px 10px 6px;
+    overflow: hidden;
+    z-index: 2;
+    position: relative;
+  }
+  #storage-label {
+    font-family: 'Fredoka One', sans-serif;
+    font-size: 11px;
+    color: var(--text-light);
+    margin-bottom: 4px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  #storage-panel {
+    background: linear-gradient(180deg, #f0e4c8 0%, #e8d8b0 100%);
+    border-left:   10px solid #7a5020;
+    border-right:  10px solid #7a5020;
+    border-bottom: 10px solid #7a5020;
+    border-top: none;
+    border-radius: 4px 4px 20px 20px;
+    padding: 12px 10px 12px;
+    box-shadow:
+      inset 0 -4px 12px rgba(0,0,0,0.10),
+      inset 4px 0 8px rgba(0,0,0,0.06),
+      inset -4px 0 8px rgba(0,0,0,0.06),
+      0 4px 16px rgba(0,0,0,0.20);
+    position: relative;
+  }
+  /* Shelf board above the panel */
+  #storage-panel::before {
+    content: '';
+    position: absolute;
+    top: -14px; left: -10px; right: -10px;
+    height: 14px;
+    background: linear-gradient(180deg, #a06030, #7a4820);
+    border-radius: 6px 6px 0 0;
+    box-shadow: 0 -2px 0 #c07840, inset 0 -3px 6px rgba(0,0,0,0.2);
+  }
+  #storage-grid { display: grid; gap: 6px; }
+
+  .grid-cell {
+    width: 32px; height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    border-radius: 7px;
+    /* Default: locked wood crate */
+    background: linear-gradient(160deg, #d49030, #a86018);
+    border: 2px solid #7a4010;
+    box-shadow: 0 3px 0 #5a2808, inset 0 1px 0 rgba(255,255,255,0.2);
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.12s ease, box-shadow 0.12s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    overflow: hidden;
+  }
+  /* Wood grain on all crate cells */
+  .grid-cell::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      90deg, transparent, transparent 6px,
+      rgba(0,0,0,0.06) 6px, rgba(0,0,0,0.06) 7px
+    );
+    pointer-events: none;
+  }
+  .grid-cell.selectable {
+    background: linear-gradient(160deg, #ffd840, #f0a820);
+    border-color: #c07810;
+    box-shadow: 0 3px 0 #905808, inset 0 1px 0 rgba(255,255,255,0.4);
+    animation: pulseCrate 1.8s ease infinite;
+  }
+  @keyframes pulseCrate {
+    0%,100% { box-shadow: 0 3px 0 #905808, inset 0 1px 0 rgba(255,255,255,0.4); }
+    50%     { box-shadow: 0 3px 0 #905808, inset 0 1px 0 rgba(255,255,255,0.4), 0 0 0 3px rgba(255,200,30,0.5); }
+  }
+  .grid-cell.selectable:hover,
+  .grid-cell.selectable:active {
+    transform: scale(1.22) translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.25), 0 0 0 2px rgba(255,200,30,0.7);
+    z-index: 10;
+    animation: none;
+    background: linear-gradient(160deg, #ffe060, #f8b828);
+  }
+  .grid-cell.locked-cell {
+    background: linear-gradient(160deg, #a06820, #784010);
+    border-color: #5a2e08;
+    box-shadow: 0 2px 0 #3a1e04;
+    opacity: 0.55;
+    cursor: not-allowed;
+    filter: none;
+  }
+  .grid-cell.empty-cell {
+    background: rgba(180,140,80,0.12);
+    border: 1.5px dashed rgba(150,110,60,0.3);
+    box-shadow: none;
+    cursor: default;
+  }
+  .grid-cell.empty-cell::before { display: none; }
+  .grid-cell.hopping { animation: hopToTray 0.28s ease forwards; }
+  @keyframes hopToTray {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.18) translateY(-10px); }
+    100% { transform: scale(0.4) translateY(50px); opacity: 0; }
+  }
+
+  /* ── BOOSTERS ── */
+  #boosters-area {
+    display: flex;
+    padding: 6px 14px 14px;
+    flex-shrink: 0;
+    gap: 10px;
+    z-index: 2;
+    position: relative;
+  }
+  .booster-btn {
+    flex: 1;
+    height: 52px;
+    border-radius: 16px;
+    border: none;
+    background: linear-gradient(160deg, #f5c518, #d4a010);
+    box-shadow: 0 5px 0 #9a7008, 0 2px 10px rgba(0,0,0,0.25);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    font-family: 'Fredoka One', sans-serif;
+    font-size: 13px;
+    color: #3a2608;
+    letter-spacing: 0.3px;
+    transition: transform 0.08s, box-shadow 0.08s;
+    -webkit-tap-highlight-color: transparent;
+    border-top: 2px solid rgba(255,255,255,0.45);
+  }
+  .booster-btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 1px 0 #9a7008, 0 1px 4px rgba(0,0,0,0.2);
+  }
+  .booster-btn:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 2px 0 #9a7008;
+  }
+  .booster-icon { font-size: 19px; }
+
+  /* ── OVERLAY ── */
+  #overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(20,12,5,0.72);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    border-radius: 36px;
+    backdrop-filter: blur(8px);
+  }
+  #overlay.show { display: flex; }
+  .overlay-card {
+    background: linear-gradient(160deg, #f8f0dc, #ede0c0);
+    border-radius: 28px;
+    padding: 36px 44px 32px;
+    text-align: center;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.55), 0 0 0 3px rgba(255,255,255,0.2);
+    border-top: 4px solid rgba(255,255,255,0.5);
+    animation: popIn 0.42s cubic-bezier(0.34,1.56,0.64,1);
+    min-width: 270px;
+  }
+  @keyframes popIn {
+    from { transform: scale(0.5) translateY(40px); opacity: 0; }
+    to   { transform: scale(1) translateY(0); opacity: 1; }
+  }
+  .overlay-emoji { font-size: 62px; margin-bottom: 8px; }
+  .overlay-title {
+    font-family: 'Fredoka One', sans-serif;
+    font-size: 32px;
+    color: var(--text);
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+  }
+  .overlay-sub {
+    font-size: 15px;
+    color: var(--text-mid);
+    font-weight: 700;
+    margin-bottom: 24px;
+  }
+  .overlay-btn {
+    background: linear-gradient(160deg, #5ac84a, #3a9828);
+    color: white;
+    border: none;
+    border-radius: 16px;
+    padding: 14px 44px;
+    font-family: 'Fredoka One', sans-serif;
+    font-size: 19px;
+    cursor: pointer;
+    box-shadow: 0 6px 0 #226012, 0 2px 12px rgba(0,0,0,0.3);
+    border-top: 2px solid rgba(255,255,255,0.35);
+    transition: transform 0.08s, box-shadow 0.08s;
+    letter-spacing: 0.5px;
+  }
+  .overlay-btn:active {
+    transform: translateY(5px);
+    box-shadow: 0 1px 0 #226012;
+  }
+
+  /* ── CONFETTI ── */
+  .confetti-piece {
+    position: absolute;
+    pointer-events: none;
+    z-index: 200;
+    animation: confettiFall 1.8s ease-in forwards;
+  }
+  @keyframes confettiFall {
+    0%   { opacity: 1; }
+    100% { transform: translateY(500px) rotate(760deg); opacity: 0; }
+  }
+
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20%     { transform: translateX(-7px); }
+    40%     { transform: translateX(7px); }
+    60%     { transform: translateX(-4px); }
+    80%     { transform: translateX(4px); }
+  }
+  .shake { animation: shake 0.38s ease; }
+</style>
+</head>
+<body>
+<div id="game-container">
+
+  <div id="level-bar">
+    <div id="level-badge-wrap">
+      <span id="level-badge">LVL 1</span>
+    </div>
+    <div id="timer-wrap">
+      <span id="timer-icon">⏱️</span>
+      <span id="timer-display">1:00</span>
+    </div>
+    <div id="timer-bar-track">
+      <div id="timer-bar-fill"></div>
+    </div>
+  </div>
+
+  <!-- TRUCKS -->
+  <div id="trucks-area"></div>
+
+  <!-- CONVEYOR -->
+  <div id="conveyor-area">
+    <!-- Delivery strips injected by JS -->
+    <canvas id="conveyor-canvas"></canvas>
+    <div id="conveyor-boxes-layer"></div>
+    <div id="conveyor-capacity">0/5</div>
+  </div>
+
+  <!-- TRAYS -->
+  <div id="tray-area">
+    <div id="tray-label">📦 Sorting Tray</div>
+    <div id="tray-row"></div>
+  </div>
+
+  <!-- STORAGE AREA -->
+  <div id="storage-area-wrap">
+    <div id="storage-label">🏭 Warehouse Stock</div>
+    <div id="storage-panel">
+      <div id="storage-grid"></div>
+    </div>
+  </div>
+
+  <!-- BOOSTERS -->
+  <div id="boosters-area">
+    <button class="booster-btn" id="btn-undo">
+      <span class="booster-icon">↩️</span> Undo
+    </button>
+    <button class="booster-btn" id="btn-shuffle">
+      <span class="booster-icon">🔀</span> Reshuffle
+    </button>
+    <button class="booster-btn" id="btn-space">
+      <span class="booster-icon">📦</span> +Slot
+    </button>
+  </div>
+
+  <!-- OVERLAY -->
+  <div id="overlay">
+    <div class="overlay-card">
+      <div class="overlay-emoji" id="overlay-emoji">🎉</div>
+      <div class="overlay-title"  id="overlay-title">Level Complete!</div>
+      <div class="overlay-sub"    id="overlay-sub">All trucks delivered!</div>
+      <button class="overlay-btn" id="overlay-btn">Play Again</button>
+    </div>
+  </div>
+
+</div>
+<script>
+// ═══════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════
+const GOODS = {
+  juice:    { emoji: '🧃', color: '#f06292' },
+  tomato:   { emoji: '🍅', color: '#e53935' },
+  carrot:   { emoji: '🥕', color: '#fb8c00' },
+  potato:   { emoji: '🥔', color: '#8d6e63' },
+  eggplant: { emoji: '🍆', color: '#8e24aa' },
+  onion:    { emoji: '🧅', color: '#43a047' },
+};
+const TRUCK_COLORS = {
+  juice:'#f06292', tomato:'#e53935', carrot:'#fb8c00',
+  potato:'#8d6e63', eggplant:'#8e24aa', onion:'#43a047',
+};
+const LEVELS = [
+  // Level 1 — 4 cols rectangle
+  // pool = (3+2+2)*3 = 21 goods → 6 rows × 4 = 24 cells (3 padding)
+  { trucks:[{type:'juice',required:3},{type:'tomato',required:2},{type:'carrot',required:2}],
+    gridCols:4, timerSeconds:60 },
+
+  // Level 2 — 5 cols rectangle
+  // pool = (2+3+2+2)*3 = 27 goods → 6 rows × 5 = 30 cells (3 padding)
+  { trucks:[{type:'juice',required:2},{type:'tomato',required:3},{type:'carrot',required:2},{type:'potato',required:2}],
+    gridCols:5, timerSeconds:80 },
+
+  // Level 3 — 5 cols rectangle
+  // pool = (3+3+2+3)*3 = 33 goods → 7 rows × 5 = 35 cells (2 padding)
+  { trucks:[{type:'juice',required:3},{type:'tomato',required:3},{type:'eggplant',required:2},{type:'onion',required:3}],
+    gridCols:5, timerSeconds:100 },
+];
+
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let state = {};
+
+function shuffle(arr) {
+  for (let i = arr.length-1; i > 0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function buildLevel(lvlIdx) {
+  const lvl  = LEVELS[lvlIdx % LEVELS.length];
+  const cols = lvl.gridCols;
+
+  const pool = [];
+  lvl.trucks.forEach(t => { for (let i = 0; i < t.required * 3; i++) pool.push(t.type); });
+  shuffle(pool);
+
+  const rows      = Math.ceil(pool.length / cols);
+  const cellCount = rows * cols;
+  const padding   = cellCount - pool.length;
+  const grid      = [...Array(padding).fill(null), ...pool];
+
+  return {
+    level: lvlIdx,
+    trucks: lvl.trucks.map((t, i) => ({...t, delivered:0, locked:i>0, completed:false, departing:false})),
+    tray: Array(7).fill(null),
+    trayMax: 5,
+    conveyor: [],
+    grid,
+    gridCols: cols,
+    gridRows: rows,
+    history: [],
+    spaceUsed: false,
+    conveyorMax: 5,
+    gameOver: false,
+    win: false,
+    timerTotal:   lvl.timerSeconds,
+    timerElapsed: 0,
+  };
+}
+
+// ═══════════════════════════════════════
+// SELECTABILITY
+// ═══════════════════════════════════════
+function getSelectableIndices() {
+  const {grid, gridCols, gridRows} = state;
+  const selectable = [];
+  grid.forEach((good, idx) => {
+    if (good === null) return;
+    const row = Math.floor(idx / gridCols);
+    const col = idx % gridCols;
+
+    // A neighbour counts as "free" only if it is an in-bounds cell that has
+    // been emptied (was part of the grid and is now null).
+    // Grid edges and out-of-bounds do NOT count — goods on the shape boundary
+    // are only unlocked when an adjacent good is removed.
+    const emptied = (r, c) => {
+      if (r < 0 || r >= gridRows || c < 0 || c >= gridCols) return false;
+      return grid[r * gridCols + c] === null;
+    };
+
+    // Top row is the starting surface — always selectable
+    const isTopRow = row === 0;
+
+    if (isTopRow ||
+        emptied(row-1, col) || emptied(row+1, col) ||
+        emptied(row, col-1) || emptied(row, col+1)) {
+      selectable.push(idx);
+    }
+  });
+  return selectable;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CONVEYOR — rounded-rectangle loop track drawn on canvas
+//
+// The track is a rounded rect with:
+//   outer rect:  margin 8px from conveyor-area edges, radius 24px
+//   track width: 14px (the belt channel)
+//
+// pos: 0..1 = fraction around the perimeter (clockwise).
+//   0.0  = top-left corner start  (boxes spawn here)
+//   ~0.4 = top-right area         (delivery zone, near trucks)
+//   1.0  = wraps back to 0.0
+//
+// Boxes loop continuously until a matching active truck is in range.
+// Delivery check: when a box is on the TOP stretch and its x-position
+// is near a truck's delivery strip x.
+// ═══════════════════════════════════════════════════════════════
+
+let conveyorBoxId = 0;
+const pendingBoxes  = [];
+const deliveringSet = new Set();
+const BELT_SPEED    = 0.25; // perimeter-fractions per second
+
+// ── Track geometry (computed once after layout) ──
+let TRACK = null; // { x, y, w, h, r, perimeter, segLengths }
+
+function computeTrack() {
+  const area = document.getElementById('conveyor-area');
+  if (!area) return;
+  const W = area.clientWidth;
+  const H = area.clientHeight;
+
+  // Delivery stubs sit above the top edge of the track.
+  // The track rectangle starts below the stubs.
+  const stubH = 30;   // height reserved for stubs above track top
+  const mx    = 4;    // horizontal margin
+  const bw    = 22;   // belt channel thickness (thick walls like reference)
+  const r     = 32;   // corner radius — large, nearly pill-like
+
+  const x = mx;
+  const y = stubH;
+  const w = W - mx * 2;
+  const h = H - stubH - 4;  // 4px bottom margin
+
+  // Perimeter segments (clockwise from top-left of straight top edge)
+  const arc            = 0.5 * Math.PI * r;
+  const straight_top   = w - 2 * r;
+  const straight_right = h - 2 * r;
+  const straight_bot   = w - 2 * r;
+  const straight_left  = h - 2 * r;
+  const perimeter = straight_top + arc + straight_right + arc + straight_bot + arc + straight_left + arc;
+  const segLengths = [straight_top, arc, straight_right, arc, straight_bot, arc, straight_left, arc];
+
+  TRACK = { x, y, w, h, r, bw, perimeter, segLengths };
+
+  const canvas = document.getElementById('conveyor-canvas');
+  if (canvas) {
+    canvas.width  = W;
+    canvas.height = H;
+    drawTrack(canvas);
+  }
+}
+
+// ── Draw the rounded-rect track — matches reference mockup style ──
+function drawTrack(canvas) {
+  if (!TRACK) return;
+  const ctx = canvas.getContext('2d');
+  const { x, y, w, h, r, bw } = TRACK;
+  const W = canvas.width, H = canvas.height;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Helper: draw a rounded-rect path
+  function rrect(rx, ry, rw, rh, rr) {
+    rr = Math.max(0, rr);
+    ctx.beginPath();
+    ctx.moveTo(rx + rr, ry);
+    ctx.lineTo(rx + rw - rr, ry);
+    ctx.arcTo(rx + rw, ry,      rx + rw, ry + rr,      rr);
+    ctx.lineTo(rx + rw, ry + rh - rr);
+    ctx.arcTo(rx + rw, ry + rh, rx + rw - rr, ry + rh, rr);
+    ctx.lineTo(rx + rr, ry + rh);
+    ctx.arcTo(rx,       ry + rh, rx,           ry + rh - rr, rr);
+    ctx.lineTo(rx,      ry + rr);
+    ctx.arcTo(rx,       ry,      rx + rr,      ry,      rr);
+    ctx.closePath();
+  }
+
+  // ── 1. Drop shadow behind the whole track ──
+  ctx.save();
+  ctx.shadowColor    = 'rgba(0,0,0,0.40)';
+  ctx.shadowBlur     = 12;
+  ctx.shadowOffsetY  = 5;
+  rrect(x, y, w, h, r);
+  ctx.fillStyle = '#2e2418';
+  ctx.fill();
+  ctx.restore();
+
+  // ── 2. Outer track body — dark rubber ──
+  rrect(x, y, w, h, r);
+  ctx.fillStyle = '#3a2e22';
+  ctx.fill();
+
+  // Top highlight
+  ctx.save();
+  rrect(x, y, w, h, r);
+  ctx.clip();
+  const topGrad = ctx.createLinearGradient(0, y, 0, y + bw);
+  topGrad.addColorStop(0,   'rgba(255,255,255,0.20)');
+  topGrad.addColorStop(1,   'rgba(255,255,255,0)');
+  ctx.fillStyle = topGrad;
+  ctx.fillRect(x, y, w, bw);
+  ctx.restore();
+
+  // Bottom shadow
+  ctx.save();
+  rrect(x, y, w, h, r);
+  ctx.clip();
+  const botGrad = ctx.createLinearGradient(0, y + h - bw, 0, y + h);
+  botGrad.addColorStop(0, 'rgba(0,0,0,0)');
+  botGrad.addColorStop(1, 'rgba(0,0,0,0.28)');
+  ctx.fillStyle = botGrad;
+  ctx.fillRect(x, y + h - bw, w, bw);
+  ctx.restore();
+
+  // ── 3. Inner hollow — warm cream ──
+  const inner = bw;
+  const ir    = Math.max(r - inner, 6);
+  rrect(x + inner, y + inner, w - inner * 2, h - inner * 2, ir);
+  ctx.fillStyle = '#f0e8d0';
+  ctx.fill();
+
+  // Inset shadow
+  ctx.save();
+  rrect(x + inner, y + inner, w - inner * 2, h - inner * 2, ir);
+  ctx.clip();
+  const insetGrad = ctx.createLinearGradient(0, y + inner, 0, y + inner + 14);
+  insetGrad.addColorStop(0, 'rgba(0,0,0,0.12)');
+  insetGrad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = insetGrad;
+  ctx.fillRect(x + inner, y + inner, w - inner * 2, 14);
+  ctx.restore();
+
+  // ── 4. Mask out the delivery-stub slots on the top edge ──
+  const stubW   = 26;
+  const stubTop = 0;
+  const stubBot = y + bw - 2;
+
+  const convArea = document.getElementById('conveyor-area');
+  const convRect = convArea ? convArea.getBoundingClientRect() : null;
+  if (convRect) {
+    state.trucks.forEach((truck, i) => {
+      if (truck.completed && !truck.departing) return;
+      const slotEl = document.querySelector(`.truck-slot[data-truck-index="${i}"]`);
+      if (!slotEl) return;
+      const slotRect = slotEl.getBoundingClientRect();
+      const cx = slotRect.left + slotRect.width / 2 - convRect.left;
+      ctx.fillStyle = '#3a2e22';
+      ctx.fillRect(cx - stubW / 2, y - 2, stubW, bw + 2);
+    });
+  }
+
+  // ── 5. Inner border ──
+  rrect(x + inner, y + inner, w - inner * 2, h - inner * 2, ir);
+  ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+  ctx.lineWidth   = 1.5;
+  ctx.stroke();
+}
+
+// ── Map pos (0..1) → {px, py} on the belt midline (centre of track channel) ──
+// Clockwise from top-left of straight top edge.
+function posToXY(pos) {
+  if (!TRACK) return { px: 0, py: 0 };
+  const { x, y, w, h, r, bw, perimeter, segLengths } = TRACK;
+  // Trace the midline: inset by bw/2 from outer edge
+  const m  = bw / 2;
+  const mx = x + m, my = y + m;
+  const mw = w - m * 2, mh = h - m * 2;
+  const mr = Math.max(r - m, 4);
+
+  // Recompute segment lengths for midline
+  const arc  = 0.5 * Math.PI * mr;
+  const sTop = mw - 2 * mr, sRt = mh - 2 * mr, sBot = mw - 2 * mr, sLt = mh - 2 * mr;
+  const mSegs = [sTop, arc, sRt, arc, sBot, arc, sLt, arc];
+  const mPerim = mSegs.reduce((a, b) => a + b, 0);
+
+  let dist = ((pos % 1) + 1) % 1 * mPerim;
+
+  for (let seg = 0; seg < 8; seg++) {
+    const len = mSegs[seg];
+    if (dist <= len + 1e-6) {
+      const t = Math.min(dist / len, 1);
+      const q = t * Math.PI / 2;
+      if (seg === 0) return { px: mx + mr + t * sTop,                    py: my };
+      if (seg === 1) return { px: mx + mw - mr + Math.sin(q) * mr,       py: my + mr - Math.cos(q) * mr };
+      if (seg === 2) return { px: mx + mw,                               py: my + mr + t * sRt };
+      if (seg === 3) return { px: mx + mw - mr + Math.cos(q) * mr,       py: my + mh - mr + Math.sin(q) * mr };
+      if (seg === 4) return { px: mx + mw - mr - t * sBot,               py: my + mh };
+      if (seg === 5) return { px: mx + mr - Math.sin(q) * mr,            py: my + mh - mr + Math.cos(q) * mr };
+      if (seg === 6) return { px: mx,                                     py: my + mh - mr - t * sLt };
+      if (seg === 7) return { px: mx + mr - Math.cos(q) * mr,            py: my + mr - Math.sin(q) * mr };
+    }
+    dist -= len;
+  }
+  return { px: mx + mr, py: my };
+}
+
+// ── Is pos on the TOP stretch of the midline? Returns {on, px} ──
+function posOnTopStretch(pos) {
+  if (!TRACK) return { on: false, px: 0 };
+  const { x, y, w, h, r, bw } = TRACK;
+  const m  = bw / 2;
+  const mx = x + m, my = y + m;
+  const mw = w - m * 2;
+  const mr = Math.max(r - m, 4);
+
+  const arc  = 0.5 * Math.PI * mr;
+  const sTop = mw - 2 * mr;
+  const sRt  = (h - m * 2) - 2 * mr;
+  const sBot = sTop;
+  const sLt  = sRt;
+  const mPerim = sTop + arc + sRt + arc + sBot + arc + sLt + arc;
+
+  const dist = ((pos % 1) + 1) % 1 * mPerim;
+  if (dist <= sTop) {
+    const t  = dist / sTop;
+    const px = mx + mr + t * sTop;
+    return { on: true, px };
+  }
+  return { on: false, px: 0 };
+}
+
+// ── Returns the exact normalised perimeter pos of the bottom-stretch midpoint ──
+// Used by both addBoxToConveyor (spawn) and animateHopBox (landing target).
+function computeBottomBase() {
+  if (!TRACK) return 0.50;
+  const { r, bw, w, h } = TRACK;
+  const m   = bw / 2;
+  const mw  = w - m * 2, mh = h - m * 2;
+  const mr  = Math.max(r - m, 4);
+  const arc = 0.5 * Math.PI * mr;
+  const sTop = mw - 2 * mr;
+  const sRt  = mh - 2 * mr;
+  const sBot = sTop;
+  const sLt  = sRt;
+  const mPerim  = sTop + arc + sRt + arc + sBot + arc + sLt + arc;
+  const botStart = sTop + arc + sRt + arc;
+  return (botStart + sBot / 2) / mPerim;
+}
+
+function addBoxToConveyor(good, noSpawn = false) {
+  const BASE     = computeBottomBase();
+  const existing = state.conveyor.map(b => b.pos);
+  let pos = BASE;
+  for (let a = 0; a < 40; a++) {
+    const sign = (a % 2 === 0) ? 1 : -1;
+    const c = ((BASE + sign * Math.ceil(a / 2) * 0.018) + 2) % 1;
+    const minD = existing.length
+      ? existing.reduce((m, p) => Math.min(m, Math.abs(((c - p + 1.5) % 1) - 0.5)), 1)
+      : 1;
+    if (minD > 0.08) { pos = c; break; }
+  }
+  const id = conveyorBoxId++;
+  state.conveyor.push({ type: good, id, pos, spawning: !noSpawn });
+  if (!noSpawn) {
+    setTimeout(() => {
+      const b = state.conveyor.find(b => b.id === id);
+      if (b) b.spawning = false;
+    }, 420);
+  }
+}
+
+let lastTs = null;
+
+function renderTimer(paused = false) {
+  if (!state || !state.timerTotal) return;
+  const remaining = Math.max(0, state.timerTotal - state.timerElapsed);
+  const mins = Math.floor(remaining / 60);
+  const secs = Math.floor(remaining % 60);
+  const str  = `${mins}:${secs.toString().padStart(2, '0')}`;
+  const disp = document.getElementById('timer-display');
+  const fill = document.getElementById('timer-bar-fill');
+  const icon = document.getElementById('timer-icon');
+  if (disp) {
+    disp.textContent = str;
+    if (paused) {
+      disp.classList.remove('urgent');
+      disp.style.opacity = '0.45';
+    } else {
+      disp.style.opacity = '';
+      if (remaining <= 10) disp.classList.add('urgent');
+      else disp.classList.remove('urgent');
+    }
+  }
+  if (icon) icon.textContent = paused ? '⏸️' : '⏱️';
+  if (fill) {
+    const pct = (remaining / state.timerTotal) * 100;
+    fill.style.width = pct + '%';
+    if (!paused && remaining <= 10) fill.classList.add('urgent');
+    else fill.classList.remove('urgent');
+    fill.style.opacity = paused ? '0.45' : '';
+  }
+}
+
+function conveyorTick(ts) {
+  if (!lastTs) lastTs = ts;
+  const dt = Math.min((ts - lastTs) / 1000, 0.05);
+  lastTs = ts;
+
+  if (state && !state.gameOver && !state.win) {
+    // Timer pauses only when all shape cells in the grid are empty
+    const timerShouldPause = state.grid.every(g => g === null);
+
+    if (!timerShouldPause) {
+      state.timerElapsed += dt;
+      renderTimer(false);
+      if (state.timerElapsed >= state.timerTotal) {
+        state.gameOver = true;
+        showOverlay('⏰', 'Time\'s Up!', 'The trucks couldn\'t wait any longer.', 'Try Again');
+        return;
+      }
+    } else {
+      renderTimer(true);
+    }
+
+    // Advance all boxes (loop wrapping)
+    state.conveyor.forEach(box => {
+      if (!deliveringSet.has(box.id)) {
+        box.pos = (box.pos + BELT_SPEED * dt) % 1;
+      }
+    });
+    checkDeliveries();
+    while (pendingBoxes.length && state.conveyor.length < state.conveyorMax) {
+      addBoxToConveyor(pendingBoxes.shift());
+    }
+    renderConveyor();
+  }
+  requestAnimationFrame(conveyorTick);
+}
+
+// ── Delivery: box on top stretch, near a truck's strip x-position ──
+function checkDeliveries() {
+  if (!TRACK) return;
+
+  // Build map of active truck delivery x-positions
+  const convArea  = document.getElementById('conveyor-area');
+  if (!convArea) return;
+  const convRect  = convArea.getBoundingClientRect();
+
+  state.conveyor.forEach(box => {
+    if (deliveringSet.has(box.id)) return;
+    const top = posOnTopStretch(box.pos);
+    if (!top.on) return;
+
+    // Check each active truck
+    for (let ti = 0; ti < state.trucks.length; ti++) {
+      const truck = state.trucks[ti];
+      if (truck.type !== box.type) continue;
+      if (truck.locked || truck.completed || truck.departing) continue;
+      if (truck.delivered >= truck.required) continue;
+
+      // Find where this truck's strip is
+      const slotEl = document.querySelector(`.truck-slot[data-truck-index="${ti}"]`);
+      if (!slotEl) continue;
+      const slotRect = slotEl.getBoundingClientRect();
+      const truckCx  = slotRect.left + slotRect.width / 2 - convRect.left;
+
+      // Deliver when box x is within ±20px of truck centre
+      if (Math.abs(top.px - truckCx) < 20) {
+        deliveringSet.add(box.id);
+        const el = document.getElementById(`cbox-${box.id}`);
+        if (el) el.classList.add('delivering');
+
+        setTimeout(() => {
+          state.conveyor = state.conveyor.filter(b => b.id !== box.id);
+          deliveringSet.delete(box.id);
+          state.trucks[ti].delivered++;
+          bounceTruck(ti);
+
+          if (state.trucks[ti].delivered >= state.trucks[ti].required) {
+            state.trucks[ti].departing = true;
+            triggerTruckDeparture(ti);
+          } else {
+            renderTrucks();
+          }
+        }, 420);
+        break;
+      }
+    }
+  });
+}
+
+function renderConveyor() {
+  if (!TRACK) { computeTrack(); return; }
+
+  const layer = document.getElementById('conveyor-boxes-layer');
+  const seen  = new Set();
+
+  state.conveyor.forEach(box => {
+    const elId = `cbox-${box.id}`;
+    seen.add(elId);
+    let el = document.getElementById(elId);
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'conveyor-box' + (box.spawning ? ' spawning' : '');
+      el.id = elId;
+      el.innerHTML =
+        `<div class="cb-crate"></div>` +
+        `<div class="cb-good">${GOODS[box.type].emoji}</div>`;
+      layer.appendChild(el);
+    }
+
+    const { px, py } = posToXY(box.pos);
+    // Box is 36px wide, 52px tall.
+    // Center box horizontally on path, vertically so box center sits on path.
+    el.style.left = (px - 18) + 'px';
+    el.style.top  = (py - 26) + 'px';
+  });
+
+  layer.querySelectorAll('.conveyor-box').forEach(el => {
+    if (!seen.has(el.id) && !el.classList.contains('delivering')) el.remove();
+  });
+
+  document.getElementById('conveyor-capacity').textContent =
+    `${state.conveyor.length} / ${state.conveyorMax}`;
+
+  // Pin label to vertical centre of the hollow
+  if (TRACK) {
+    const { y, h, bw } = TRACK;
+    const hollowCy = y + bw + (h - bw * 2) / 2;
+    const lbl = document.getElementById('conveyor-capacity');
+    lbl.style.top = (hollowCy - 13) + 'px'; // 13 ≈ half of 22px font
+  }
+}
+function triggerTruckDeparture(ti) {
+  // Apply the driveAway animation to the existing DOM element directly
+  // (do NOT re-render trucks, which would restart the anim)
+  const slotEl = document.querySelector(`.truck-slot[data-truck-index="${ti}"]`);
+  if (slotEl) {
+    slotEl.classList.add('truck-departing');
+  }
+  // Update progress label too
+  renderTruckProgress(ti);
+
+  setTimeout(() => {
+    // Fully remove from state after animation
+    state.trucks[ti].completed = true;
+    // Unlock next locked truck
+    const next = state.trucks.findIndex(t => t.locked && !t.completed && !t.departing);
+    if (next !== -1) state.trucks[next].locked = false;
+    // Rebuild truck DOM (departed truck is now gone from state render)
+    renderTrucks();
+    checkWinLose();
+  }, 700);
+}
+
+function renderTruckProgress(ti) {
+  const slotEl = document.querySelector(`.truck-slot[data-truck-index="${ti}"]`);
+  if (!slotEl) return;
+  const prog = slotEl.querySelector('.truck-progress');
+  if (prog) prog.textContent = `${state.trucks[ti].delivered}/${state.trucks[ti].required}`;
+}
+
+function bounceTruck(ti) {
+  const svg = document.querySelector(`.truck-slot[data-truck-index="${ti}"] .truck-svg`);
+  if (!svg) return;
+  svg.classList.remove('truck-bounce');
+  void svg.offsetWidth;
+  svg.classList.add('truck-bounce');
+  setTimeout(() => svg.classList.remove('truck-bounce'), 420);
+}
+
+// ═══════════════════════════════════════
+// DELIVERY STRIPS
+// One short vertical strip per truck, positioned above the belt
+// at the horizontal centre of each truck slot.
+// ═══════════════════════════════════════
+// ── Frozen strip positions for departing trucks (set once, never updated) ──
+const frozenStripPositions = {}; // truckIndex → cx (px)
+
+let _stripRafPending = false;
+function scheduleStripRender() {
+  if (_stripRafPending) return;
+  _stripRafPending = true;
+  requestAnimationFrame(() => { _stripRafPending = false; renderDeliveryStrips(); });
+}
+
+function renderDeliveryStrips() {
+  const convArea = document.getElementById('conveyor-area');
+  const convRect  = convArea.getBoundingClientRect();
+
+  // Build the set of truck indices that should currently have a strip
+  const activeIndices = new Set();
+  state.trucks.forEach((truck, i) => {
+    if (truck.completed && !truck.departing) return; // fully gone
+    activeIndices.add(i);
+  });
+
+  // Remove strips for trucks that are no longer active
+  convArea.querySelectorAll('.delivery-strip, .delivery-strip-cap').forEach(el => {
+    const idx = parseInt(el.dataset.truckIndex);
+    if (!activeIndices.has(idx)) {
+      el.remove();
+      delete frozenStripPositions[idx];
+    }
+  });
+
+  const trackY = TRACK ? TRACK.y : 30;
+  const stripH = trackY + (TRACK ? TRACK.bw - 2 : 18);
+
+  activeIndices.forEach(i => {
+    const truck = state.trucks[i];
+
+    // For departing trucks: freeze position on first encounter, never redraw
+    if (truck.departing) {
+      if (!frozenStripPositions.hasOwnProperty(i)) {
+        // Record current position before animating away
+        const slotEl = document.querySelector(`.truck-slot[data-truck-index="${i}"]`);
+        if (slotEl) {
+          const slotRect = slotEl.getBoundingClientRect();
+          frozenStripPositions[i] = slotRect.left + slotRect.width / 2 - convRect.left;
+        }
+      }
+      // If strip already in DOM, leave it exactly where it is
+      if (convArea.querySelector(`.delivery-strip[data-truck-index="${i}"]`)) return;
+      // Otherwise create it at the frozen position
+      const cx = frozenStripPositions[i];
+      if (cx === undefined) return;
+      _createStrip(convArea, i, cx, stripH);
+      return;
+    }
+
+    // Non-departing: always update to current slot position
+    const slotEl = document.querySelector(`.truck-slot[data-truck-index="${i}"]`);
+    if (!slotEl) return;
+    const slotRect = slotEl.getBoundingClientRect();
+    const cx = slotRect.left + slotRect.width / 2 - convRect.left;
+
+    // Remove and redraw at correct position
+    convArea.querySelectorAll(`[data-truck-index="${i}"]`).forEach(el => el.remove());
+    _createStrip(convArea, i, cx, stripH);
+  });
+
+  // Redraw canvas notches using only non-departing truck positions
+  const canvas = document.getElementById('conveyor-canvas');
+  if (canvas && TRACK) drawTrack(canvas);
+}
+
+function _createStrip(convArea, i, cx, stripH) {
+  const strip = document.createElement('div');
+  strip.className = 'delivery-strip';
+  strip.dataset.truckIndex = i;
+  strip.style.left   = (cx - 13) + 'px';
+  strip.style.height = stripH + 'px';
+  strip.style.top    = '0px';
+  convArea.appendChild(strip);
+
+  const cap = document.createElement('div');
+  cap.className = 'delivery-strip-cap';
+  cap.dataset.truckIndex = i;
+  cap.style.left = (cx - 13) + 'px';
+  cap.style.top  = '0px';
+  convArea.appendChild(cap);
+}
+
+// ═══════════════════════════════════════
+// RENDER TRUCKS
+// Only re-renders trucks that are NOT currently departing.
+// Departing trucks keep their live DOM + animation intact.
+// ═══════════════════════════════════════
+function renderTrucks() {
+  const area = document.getElementById('trucks-area');
+
+  state.trucks.forEach((truck, i) => {
+    // If this truck is currently playing the departure anim, do NOT touch its DOM node
+    if (truck.departing) return;
+    // If completed (already departed and state cleaned up), remove its slot if still present
+    if (truck.completed) {
+      const old = area.querySelector(`.truck-slot[data-truck-index="${i}"]`);
+      if (old) old.remove();
+      return;
+    }
+
+    const color = TRUCK_COLORS[truck.type];
+    const good  = GOODS[truck.type];
+
+    let slot = area.querySelector(`.truck-slot[data-truck-index="${i}"]`);
+    if (!slot) {
+      // Create fresh slot
+      slot = document.createElement('div');
+      slot.dataset.truckIndex = i;
+      // Insert in order
+      const existing = [...area.querySelectorAll('.truck-slot')]
+        .map(el => parseInt(el.dataset.truckIndex));
+      const insertBefore = area.querySelector(
+        `.truck-slot[data-truck-index="${existing.find(x => x > i)}"]`
+      );
+      area.insertBefore(slot, insertBefore || null);
+    }
+
+    slot.className = 'truck-slot' + (truck.locked ? ' locked' : '');
+
+    slot.innerHTML = `
+      <div class="truck-icon-wrap">
+        <svg class="truck-svg" viewBox="0 0 96 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Drop shadow -->
+          <ellipse cx="48" cy="68" rx="36" ry="4" fill="rgba(0,0,0,0.18)"/>
+          <!-- Cargo body -->
+          <rect x="4" y="22" width="62" height="36" rx="6" fill="${color}"/>
+          <rect x="4" y="22" width="62" height="36" rx="6" fill="url(#bodyShine${i})" />
+          <rect x="4" y="22" width="62" height="10" rx="6" fill="rgba(255,255,255,0.14)"/>
+          <!-- Body outline -->
+          <rect x="4" y="22" width="62" height="36" rx="6" stroke="rgba(0,0,0,0.35)" stroke-width="2" fill="none"/>
+          <!-- Panel lines on cargo body -->
+          <line x1="28" y1="24" x2="28" y2="57" stroke="rgba(0,0,0,0.12)" stroke-width="1.5"/>
+          <line x1="48" y1="24" x2="48" y2="57" stroke="rgba(0,0,0,0.12)" stroke-width="1.5"/>
+          <!-- Cab -->
+          <rect x="62" y="14" width="26" height="44" rx="7" fill="${color}"/>
+          <rect x="62" y="14" width="26" height="44" rx="7" fill="rgba(255,255,255,0.10)"/>
+          <rect x="62" y="14" width="26" height="44" rx="7" stroke="rgba(0,0,0,0.35)" stroke-width="2" fill="none"/>
+          <!-- Windshield -->
+          <rect x="65" y="18" width="18" height="15" rx="4" fill="#b3e5fc"/>
+          <rect x="65" y="18" width="18" height="15" rx="4" fill="url(#windShine${i})"/>
+          <rect x="65" y="18" width="18" height="15" rx="4" stroke="rgba(0,0,0,0.3)" stroke-width="1.5" fill="none"/>
+          <!-- Windshield glare -->
+          <path d="M67 20 Q70 19 72 21" stroke="rgba(255,255,255,0.7)" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+          <!-- Headlight -->
+          <rect x="85" y="30" width="5" height="8" rx="2" fill="#fff176" stroke="rgba(0,0,0,0.25)" stroke-width="1"/>
+          <rect x="85" y="30" width="5" height="8" rx="2" fill="rgba(255,255,100,0.5)"/>
+          <!-- Bumper -->
+          <rect x="82" y="50" width="12" height="5" rx="2" fill="#888" stroke="rgba(0,0,0,0.3)" stroke-width="1"/>
+          <!-- Delivery progress slots -->
+          ${Array.from({length:Math.min(truck.required,6)},(_,k)=>{
+            const x = 8 + k * 10; const f = k < truck.delivered;
+            return `<rect x="${x}" y="35" width="8" height="8" rx="2.5"
+              fill="${f ? '#fff176' : 'rgba(255,255,255,0.15)'}"
+              stroke="${f ? 'rgba(200,160,0,0.6)' : 'rgba(0,0,0,0.2)'}"
+              stroke-width="1"/>
+            ${f ? `<text x="${x+4}" y="43" font-size="5" fill="#a07000" text-anchor="middle">✓</text>` : ''}`;
+          }).join('')}
+          <!-- Rear wheel -->
+          <circle cx="22" cy="59" r="10" fill="#2a2a2a" stroke="#111" stroke-width="1.5"/>
+          <circle cx="22" cy="59" r="6"  fill="#444"/>
+          <circle cx="22" cy="59" r="3"  fill="#888"/>
+          <circle cx="22" cy="59" r="1"  fill="#ccc"/>
+          <!-- Front wheel -->
+          <circle cx="72" cy="59" r="10" fill="#2a2a2a" stroke="#111" stroke-width="1.5"/>
+          <circle cx="72" cy="59" r="6"  fill="#444"/>
+          <circle cx="72" cy="59" r="3"  fill="#888"/>
+          <circle cx="72" cy="59" r="1"  fill="#ccc"/>
+          <!-- Wheel arch highlights -->
+          <path d="M13 54 Q22 50 31 54" stroke="rgba(255,255,255,0.2)" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <path d="M63 54 Q72 50 81 54" stroke="rgba(255,255,255,0.2)" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <defs>
+            <linearGradient id="bodyShine${i}" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="rgba(255,255,255,0.18)"/>
+              <stop offset="40%" stop-color="rgba(255,255,255,0)"/>
+              <stop offset="100%" stop-color="rgba(0,0,0,0.12)"/>
+            </linearGradient>
+            <linearGradient id="windShine${i}" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="rgba(255,255,255,0.5)"/>
+              <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <div class="truck-good-badge">${good.emoji}</div>
+        ${truck.locked ? '<div class="truck-lock-icon">🔒</div>' : ''}
+      </div>
+      <div class="truck-progress">${truck.delivered}/${truck.required}</div>`;
+  });
+
+  // After trucks are updated, refresh delivery strips (debounced)
+  scheduleStripRender();
+}
+
+function renderTray() {
+  const rowEl = document.getElementById('tray-row');
+  rowEl.innerHTML = '';
+
+  // Slot layout: [bonus-left=0] [normal 1-5] [bonus-right=6]
+  for (let i = 0; i < 7; i++) {
+    const isBonus = (i === 0 || i === 6);
+    const slot = document.createElement('div');
+    slot.id = `tray-slot-${i}`;
+
+    if (isBonus && !state.spaceUsed) {
+      slot.className = 'tray-slot bonus-locked';
+      slot.innerHTML = '<span class="bonus-lock-icon">🔒</span>';
+    } else {
+      const item = state.tray[i];
+      slot.className = 'tray-slot' +
+        (isBonus ? ' bonus-unlocked' : '') +
+        (item ? ' filled' : '');
+      if (item) slot.textContent = GOODS[item].emoji;
+    }
+    rowEl.appendChild(slot);
+  }
+}
+
+function renderGrid() {
+  const gridEl = document.getElementById('storage-grid');
+  gridEl.style.gridTemplateColumns = `repeat(${state.gridCols}, 30px)`;
+  gridEl.innerHTML = '';
+  const sel = new Set(getSelectableIndices());
+
+  state.grid.forEach((good, idx) => {
+    const cell = document.createElement('div');
+    if (good === null) {
+      cell.className = 'grid-cell empty-cell';
+    } else {
+      const canSel = sel.has(idx);
+      cell.className = 'grid-cell' + (canSel ? ' selectable' : ' locked-cell');
+      cell.textContent = GOODS[good].emoji;
+      cell.dataset.idx = idx;
+      if (canSel) {
+        cell.addEventListener('click', () => onGoodSelected(idx));
+        cell.addEventListener('touchend', e => { e.preventDefault(); onGoodSelected(idx); });
+      }
+    }
+    gridEl.appendChild(cell);
+  });
+}
+
+
+function renderAll() {
+  renderTrucks();
+  renderTray();
+  renderGrid();
+  renderConveyor();
+}
+
+// ═══════════════════════════════════════
+// LOGIC
+// ═══════════════════════════════════════
+function onGoodSelected(idx) {
+  if (state.gameOver || state.win) return;
+  const good = state.grid[idx];
+  if (!good) return;
+
+  // Active slots: indices 1–5 normally; 0–6 when booster used
+  const start = state.spaceUsed ? 0 : 1;
+  const end   = state.spaceUsed ? 7 : 6;
+  const emptySlot = state.tray.slice(start, end).indexOf(null);
+  const emptyIdx  = emptySlot === -1 ? -1 : emptySlot + start;
+  if (emptyIdx === -1) {
+    const el = document.getElementById('tray-row');
+    el.classList.add('shake');
+    setTimeout(() => el.classList.remove('shake'), 400);
+    return;
+  }
+
+  state.history.push({
+    tray: [...state.tray],
+    grid: [...state.grid],
+    conveyor: JSON.parse(JSON.stringify(state.conveyor)),
+    trucks: JSON.parse(JSON.stringify(state.trucks)),
+  });
+
+  const cellEl = document.querySelector(`[data-idx="${idx}"]`);
+  if (cellEl) cellEl.classList.add('hopping');
+
+  state.grid[idx] = null;
+  state.tray[emptyIdx] = good;
+
+  setTimeout(() => {
+    renderTray();
+    renderGrid();
+    renderConveyor();
+    // checkMatches is async (triggers hop animation); win/lose checked inside it
+    checkMatches();
+    checkWinLose();
+  }, 190);
+}
+
+function checkMatches() {
+  const counts = {};
+  state.tray.forEach((g, i) => { if (g) { if (!counts[g]) counts[g] = []; counts[g].push(i); } });
+  for (const [good, indices] of Object.entries(counts)) {
+    if (indices.length >= 3) {
+      const matched3 = indices.slice(0, 3);
+
+      // 1. Flash the three matched tray slots
+      matched3.forEach(i => {
+        const el = document.getElementById(`tray-slot-${i}`);
+        if (el) { el.classList.add('match-flash'); }
+      });
+
+      // 2. Remove from tray state immediately (render after hop)
+      matched3.forEach(i => { state.tray[i] = null; });
+      const start = state.spaceUsed ? 0 : 1;
+      const end   = state.spaceUsed ? 7 : 6;
+      const filled = state.tray.slice(start, end).filter(x => x !== null);
+      for (let i = start; i < end; i++) state.tray[i] = null;
+      filled.forEach((g, fi) => { state.tray[start + fi] = g; });
+
+      // 3. Animate hop box from tray area to conveyor bottom stretch
+      animateHopBox(good, () => {
+        // After hop lands: add box (skip spawn anim — hop was the anim)
+        if (state.conveyor.length < state.conveyorMax) addBoxToConveyor(good, true);
+        else pendingBoxes.push(good);
+        renderTray();
+        checkMatches();
+      });
+
+      return; // process one match at a time; recursion handles subsequent
+    }
+  }
+}
+
+// ── Animate a box hopping from the tray area to the conveyor bottom stretch ──
+function animateHopBox(good, onLand) {
+  const trayRow  = document.getElementById('tray-row');
+  const convArea = document.getElementById('conveyor-area');
+  if (!trayRow || !convArea || !TRACK) { onLand(); return; }
+
+  // ── Source: centre of tray row (fixed coords) ──
+  const trayRect = trayRow.getBoundingClientRect();
+  const srcX = trayRect.left + trayRect.width  / 2 - 18;
+  const srcY = trayRect.top  + trayRect.height / 2 - 26;
+
+  // ── Destination: exact pixel where the spawned box will appear ──
+  // This MUST use the same pos as addBoxToConveyor will assign (BASE = bottom midpoint).
+  // Since no box is in state yet when the hop starts, BASE = computeBottomBase().
+  const BASE     = computeBottomBase();
+  const convRect = convArea.getBoundingClientRect();
+  const { px: relPx, py: relPy } = posToXY(BASE);
+  // Box is positioned: left = px-18, top = py-26 (same as renderConveyor)
+  const dstX = convRect.left + relPx - 18;
+  const dstY = convRect.top  + relPy - 26;
+
+  const hop = document.createElement('div');
+  hop.className = 'hop-box';
+  hop.innerHTML = `<div class="hb-crate"></div><div class="hb-good">${GOODS[good].emoji}</div>`;
+  hop.style.left      = srcX + 'px';
+  hop.style.top       = srcY + 'px';
+  hop.style.transform = 'scale(0.5)';
+  document.body.appendChild(hop);
+
+  const DUR   = 360; // ms
+  const tStart = performance.now();
+  const dx = dstX - srcX;
+  const dy = dstY - srcY;
+
+  function step(now) {
+    const t    = Math.min((now - tStart) / DUR, 1);
+    const ease = t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t; // ease-in-out quad
+    const arc  = -4 * t * (t - 1);                     // parabola: 0→1→0
+    const x     = srcX + dx * ease;
+    const y     = srcY + dy * ease - arc * 55;
+    const scale = 0.5 + 0.5 * ease;                    // 0.5 → 1.0
+    hop.style.left      = x + 'px';
+    hop.style.top       = y + 'px';
+    hop.style.transform = `scale(${scale})`;
+    if (t < 1) {
+      requestAnimationFrame(step);
+    } else {
+      hop.remove();
+      onLand();
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+function checkWinLose() {
+  // Win when all trucks are completed (departed)
+  if (state.trucks.every(t => t.completed)) {
+    setTimeout(() => {
+      state.win = true;
+      spawnConfetti();
+      showOverlay('🎉','Delivered!','All trucks loaded up!','Next Level →');
+    }, 800);
+    return;
+  }
+
+  // Lose: conveyor is full but no active truck can accept any box on the belt
+  if (state.conveyor.length >= state.conveyorMax && state.conveyor.length > 0) {
+    const activeTruckTypes = new Set(
+      state.trucks
+        .filter(t => !t.locked && !t.completed && !t.departing && t.delivered < t.required)
+        .map(t => t.type)
+    );
+    const conveyorTypes = new Set(state.conveyor.map(b => b.type));
+    const noMatch = ![...conveyorTypes].some(t => activeTruckTypes.has(t));
+    if (noMatch) {
+      state.gameOver = true;
+      showOverlay('📦','Conveyor Jammed!','No truck can take these boxes.','Try Again');
+      return;
+    }
+  }
+
+  // Lose: tray is full with no possible match and grid still has goods
+  const start  = state.spaceUsed ? 0 : 1;
+  const end    = state.spaceUsed ? 7 : 6;
+  const filled = state.tray.slice(start, end).filter(x => x !== null);
+  if (filled.length >= (end - start)) {
+    const counts = {};
+    filled.forEach(g => counts[g]=(counts[g]||0)+1);
+    if (!Object.values(counts).some(c=>c>=3) && !state.grid.every(g=>g===null)) {
+      state.gameOver = true;
+      showOverlay('😢','Tray Full!','No more moves available.','Try Again');
+    }
+  }
+}
+
+// ═══════════════════════════════════════
+// BOOSTERS
+// ═══════════════════════════════════════
+document.getElementById('btn-undo').addEventListener('click', () => {
+  if (!state.history.length) return;
+  const p = state.history.pop();
+  state.tray=p.tray; state.grid=p.grid; state.conveyor=p.conveyor; state.trucks=p.trucks;
+  renderAll();
+});
+document.getElementById('btn-shuffle').addEventListener('click', () => {
+  const filled = state.grid.filter(g=>g!==null);
+  shuffle(filled);
+  let fi=0;
+  state.grid = state.grid.map(g => g===null ? null : filled[fi++]);
+  renderAll();
+});
+document.getElementById('btn-space').addEventListener('click', () => {
+  if (state.spaceUsed) return;
+  state.spaceUsed = true;
+  state.trayMax = 7;
+  // tray array is already length 7, slots 0 and 6 just become active
+  document.getElementById('btn-space').disabled = true;
+  renderTray();
+});
+
+// ═══════════════════════════════════════
+// OVERLAY
+// ═══════════════════════════════════════
+function showOverlay(emoji, title, sub, btn) {
+  document.getElementById('overlay-emoji').textContent = emoji;
+  document.getElementById('overlay-title').textContent = title;
+  document.getElementById('overlay-sub').textContent = sub;
+  document.getElementById('overlay-btn').textContent = btn;
+  document.getElementById('overlay').classList.add('show');
+}
+document.getElementById('overlay-btn').addEventListener('click', () => {
+  document.getElementById('overlay').classList.remove('show');
+  initGame(state.win ? state.level+1 : state.level);
+});
+
+// ═══════════════════════════════════════
+// CONFETTI
+// ═══════════════════════════════════════
+function spawnConfetti() {
+  const c = document.getElementById('game-container');
+  const colors = ['#f06292','#e53935','#fb8c00','#43a047','#2196f3','#9c27b0','#ffeb3b'];
+  for (let i=0;i<55;i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    p.style.cssText = `left:${Math.random()*100}%;top:-12px;width:${6+Math.random()*8}px;height:${6+Math.random()*8}px;background:${colors[Math.floor(Math.random()*colors.length)]};border-radius:${Math.random()>0.5?'50%':'2px'};animation-delay:${Math.random()*0.9}s;animation-duration:${1+Math.random()*0.9}s;`;
+    c.appendChild(p);
+    setTimeout(()=>p.remove(),2400);
+  }
+}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+function initGame(lvlIdx) {
+  pendingBoxes.length = 0;
+  deliveringSet.clear();
+  TRACK = null;
+  Object.keys(frozenStripPositions).forEach(k => delete frozenStripPositions[k]);
+  _stripRafPending = false;
+  document.querySelectorAll('.delivery-strip,.delivery-strip-cap').forEach(el=>el.remove());
+  document.getElementById('trucks-area').innerHTML = '';
+  state = buildLevel(lvlIdx);
+  document.getElementById('btn-space').disabled = false;
+  // Update level badge in timer area
+  const badge = document.getElementById('level-badge');
+  if (badge) badge.textContent = `LVL ${lvlIdx + 1}`;
+  lastTs = null;
+  renderAll();
+  renderTimer(false);
+  requestAnimationFrame(() => { computeTrack(); renderDeliveryStrips(); });
+}
+
+initGame(0);
+requestAnimationFrame(conveyorTick);
+</script>
+</body>
+</html>
